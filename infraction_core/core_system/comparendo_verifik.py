@@ -55,15 +55,15 @@ class ComparendoVerifik(IVerifik):
         lambda_response = json.loads(lambda_response)
         return lambda_response
 
-    def get_comparendos_url(self, enpoint, payload):
-        url = 'http://127.0.0.1:8001/' + enpoint + "/"
+    def get_comparendos_url(self, endpoint, payload):
+        url = 'http://scrapers-juzto-db6a111e7781be4f.elb.us-east-1.amazonaws.com:8000/' + endpoint + "/"
 
         headers = {"Authorization":"Token d5b70363a8d8a723e1fd241406cec0b66bc35c16"}
         try:
             response = requests.post(url=url, data=payload, headers=headers)
             data = response.json()
             return data
-        except JSONDecodeError or KeyError:
+        except Exception as e:
             return None
 
     async def get_infractions(self, customer: Profile) -> dict:
@@ -186,6 +186,8 @@ class ComparendoVerifik(IVerifik):
 
         try:
             for element in infractions:
+                if "error" in element["data"][0]:
+                    self.__comparendos_obj["scrapper_errors"].append(element["data"][0]["error"])
                 try:
                     print('entro a transformar la data')
                     print(element['data'][0]['comparendos'])
@@ -212,9 +214,7 @@ class ComparendoVerifik(IVerifik):
                                     'estado': cmp['estado'],
                                     'fecha_imposicion': IUtility().format_date_verifik(formatted_date_str),
                                     'fecha_resolucion': None,
-                                    'fecha_cobro_coactivo': None,
                                     'numero_resolucion': None,
-                                    'numero_cobro_coactivo': None,
                                     'placa': cmp['placa'],
                                     'servicio_vehiculo': None,
                                     'tipo_vehiculo': None,
@@ -237,9 +237,7 @@ class ComparendoVerifik(IVerifik):
                                     'estado': 'Comparendo',
                                     'fecha_imposicion': IUtility().format_date_verifik(cmp['fechaComparendo']),
                                     'fecha_resolucion': None,
-                                    'fecha_cobro_coactivo': None,
                                     'numero_resolucion': None,
-                                    'numero_cobro_coactivo': None,
                                     'placa': cmp['placaVehiculo'],
                                     'servicio_vehiculo': None,
                                     'tipo_vehiculo': None,
@@ -274,9 +272,7 @@ class ComparendoVerifik(IVerifik):
                                 'estado': 'Resolución',
                                 'fecha_imposicion': IUtility().format_date_verifik(res['fechaComparendo']),
                                 'fecha_resolucion': IUtility().format_date_verifik(res['fechaResolucion']),
-                                'fecha_cobro_coactivo': None,
                                 'numero_resolucion': res['numeroResolucion'],
-                                'numero_cobro_coactivo': None,
                                 'placa': res['placaVehiculo'],
                                 'servicio_vehiculo': None,
                                 'tipo_vehiculo': None,
@@ -302,8 +298,8 @@ class ComparendoVerifik(IVerifik):
                 except Exception as _e:
                     print('hubo un error')
                     print(_e)
-                    if element["error"]:
-                        self.__comparendos_obj["scrapper_errors"].append(element["error"])
+
+                    self.__comparendos_obj["scrapper_errors"].append(_e)
                         # report log de excepción en transform data
                     log_data =  {
                         'origen': self.__customer._origin,
@@ -318,6 +314,7 @@ class ComparendoVerifik(IVerifik):
         except Exception as _e:
 
             print(_e)
+            self.__comparendos_obj["scrapper_errors"].append(_e)
             # report log de excepción loop response data from verifik
             log_data =  {
                 'origen': self.__customer._origin,
